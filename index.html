@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,23 +13,23 @@
 <body>
   <header class="topbar">
     <div class="brand-mark">M</div>
-    <div><h1>Milton Document Manager</h1><p>Secure document library</p></div>
+    <div>
+      <h1>Milton Document Manager</h1>
+      <p>Office document library</p>
+    </div>
   </header>
 
   <main class="container">
-    <section id="setupNotice" class="notice hidden">
-      <strong>One-time setup required</strong>
-      <p>Open <code>app.js</code> and replace <code>YOUR_SUPABASE_URL</code> and <code>YOUR_SUPABASE_PUBLISHABLE_KEY</code> with your project details. Then publish the files on GitHub Pages.</p>
-    </section>
-
     <section id="authPanel" class="panel auth-panel">
-      <h2>Sign in to your library</h2>
-      <p class="muted">Create an account with your email, or sign in if you already have one.</p>
+      <h2>Sign in to Milton</h2>
+      <p class="muted">Use your office account.</p>
       <form id="authForm">
         <label for="email">Email address</label>
         <input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
+
         <label for="password">Password</label>
         <input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters">
+
         <div class="button-row">
           <button type="submit" id="signInBtn">Sign in</button>
           <button type="button" id="signUpBtn" class="secondary">Create account</button>
@@ -39,24 +40,32 @@
 
     <section id="appPanel" class="hidden">
       <div class="welcome-row">
-        <div><h2>Your documents</h2><p id="userEmail" class="muted"></p></div>
+        <div>
+          <h2>Office documents</h2>
+          <p id="userEmail" class="muted"></p>
+        </div>
         <button id="signOutBtn" class="secondary small">Sign out</button>
       </div>
 
-      <section class="panel">
-        <h3>Add a PDF document</h3>
+      <section id="uploadPanel" class="panel">
+        <h3>Upload photo or PDF</h3>
         <form id="uploadForm">
           <div class="form-grid">
             <div>
               <label for="docTitle">Document name *</label>
-              <input id="docTitle" required maxlength="120" placeholder="e.g. Vendor Agreement">
+              <input id="docTitle" required maxlength="120" placeholder="e.g. Vendor Invoice">
             </div>
             <div>
               <label for="category">Category</label>
               <select id="category">
-                <option>Invoice</option><option>Purchase Order</option><option>Credit Note</option>
-                <option>Debit Note</option><option>Company Letter</option><option>Agreement</option>
-                <option>Stock Report</option><option>Other</option>
+                <option>Invoice</option>
+                <option>Purchase Order</option>
+                <option>Credit Note</option>
+                <option>Debit Note</option>
+                <option>Company Letter</option>
+                <option>Agreement</option>
+                <option>Stock Report</option>
+                <option>Other</option>
               </select>
             </div>
             <div>
@@ -64,12 +73,13 @@
               <input id="docDate" type="date">
             </div>
             <div>
-              <label for="pdfFile">PDF file * (max 50 MB)</label>
-              <input id="pdfFile" type="file" accept="application/pdf,.pdf" required>
+              <label for="uploadFile">PDF or photo * (max 50 MB)</label>
+              <input id="uploadFile" type="file" accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif" required>
             </div>
           </div>
+
           <label for="notes">Notes (optional)</label>
-          <textarea id="notes" rows="2" maxlength="1000" placeholder="Add reference number or short notes"></textarea>
+          <textarea id="notes" rows="2" maxlength="1000" placeholder="Reference number or short notes"></textarea>
           <button id="uploadBtn" type="submit">Upload document</button>
           <p id="uploadMessage" class="message" role="status"></p>
         </form>
@@ -77,22 +87,29 @@
 
       <section class="panel">
         <div class="list-heading">
-          <div><h3>Saved documents</h3><p class="muted">Search by name, category or notes.</p></div>
+          <div>
+            <h3>Saved documents</h3>
+            <p class="muted">All office documents. Search by name, category or notes.</p>
+          </div>
           <button id="refreshBtn" class="secondary small" type="button">Refresh</button>
         </div>
+
         <label class="sr-only" for="search">Search documents</label>
         <input id="search" type="search" placeholder="Search documents…">
-        <div id="loading" class="muted">Loading documents…</div>
-        <div id="emptyState" class="empty hidden">No documents found. Upload your first PDF above.</div>
+        <div id="loading" class="muted hidden">Loading documents…</div>
+        <div id="emptyState" class="empty hidden">No documents found. Upload your first file above.</div>
+
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Document</th><th>Category</th><th>Date</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr><th>Document</th><th>Category</th><th>Date</th><th>Actions</th></tr>
+            </thead>
             <tbody id="documentRows"></tbody>
           </table>
         </div>
       </section>
     </section>
-    <footer>Milton Document Manager · Personal document library</footer>
+    <footer>Milton Document Manager · Office library</footer>
   </main>
 </body>
 </html>
