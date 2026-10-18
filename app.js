@@ -1,6 +1,6 @@
 // 1) Replace both values below with your Supabase project details.
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_PUBLISHABLE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+const SUPABASE_URL = "https://yagfecxodwsmkwayqsbe.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_vGBjV-Gag4mgQyYElUrypQ_1D7FG-er";
 const BUCKET = "documents";
 
 const $ = (id) => document.getElementById(id);
