@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -46,6 +45,26 @@
         </div>
         <button id="signOutBtn" class="secondary small">Sign out</button>
       </div>
+
+      <section id="adminPanel" class="panel hidden">
+        <div class="list-heading">
+          <div>
+            <h3>Admin dashboard · Registration approvals</h3>
+            <p class="muted">Approve only staff accounts you recognize. Users cannot approve themselves.</p>
+          </div>
+          <button id="refreshPendingBtn" class="secondary small" type="button">Refresh users</button>
+        </div>
+        <p id="approvalMessage" class="message" role="status"></p>
+        <div id="noPendingUsers" class="empty hidden">No pending registrations.</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Email</th><th>Registered</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="pendingUserRows"></tbody>
+          </table>
+        </div>
+      </section>
 
       <section id="uploadPanel" class="panel">
         <h3>Upload photo or PDF</h3>
