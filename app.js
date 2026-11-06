@@ -1,3 +1,4 @@
+
 const SUPABASE_URL = "https://yagfecxodwsmkwayqsbe.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_vGBjV-Gag4mgQyYElUrypQ_1D7FG-er";
 const BUCKET = "documents";
@@ -17,41 +18,37 @@ const isAdmin = () =>
 
 const DRIVE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/google-drive-storage`;
 
-async function driveRequest(action, { method = "GET", id = "", body = null } = {}) {
+async function driveRequest(action, { method = "GET", query = "", body = null } = {}) {
   const { data: sessionData, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw sessionError;
   const accessToken = sessionData.session?.access_token;
   if (!accessToken) throw new Error("Your login session has expired. Please sign in again.");
 
-  const url = new URL(DRIVE_FUNCTION_URL);
-  url.searchParams.set("action", action);
-  if (id) url.searchParams.set("id", id);
-
-  const headers = {
-    apikey: SUPABASE_PUBLISHABLE_KEY,
-    Authorization: `Bearer ${accessToken}`
-  };
-  if (body && !(body instanceof FormData)) headers["Content-Type"] = "application/json";
-
-  const response = await fetch(url.toString(), {
+  const response = await fetch(`${DRIVE_FUNCTION_URL}?action=${encodeURIComponent(action)}${query}`, {
     method,
-    headers,
+    headers: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${accessToken}`,
+      ...(body && !(body instanceof FormData) ? { "Content-Type": "application/json" } : {})
+    },
     body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined)
   });
 
+  const contentType = response.headers.get("content-type") || "";
   if (!response.ok) {
     let detail = `Request failed (${response.status})`;
     try {
-      const result = await response.json();
-      detail = result.error || result.message || detail;
+      const err = contentType.includes("application/json") ? await response.json() : await response.text();
+      detail = typeof err === "string" ? err : (err.error || err.message || JSON.stringify(err));
     } catch (_) {}
     throw new Error(detail);
   }
+  if (contentType.includes("application/json")) return response.json();
   return response;
 }
 
 function isLegacyStoragePath(path) {
-  return String(path || "").includes("/");
+  return typeof path === "string" && path.includes("/");
 }
 
 function message(id, text, type = "") {
@@ -161,7 +158,6 @@ function showSignedIn(user) {
 
   if (isAdmin()) {
     $("adminPanel")?.classList.remove("hidden");
-    addDriveConnectButton();
     loadPendingUsers();
   } else {
     $("adminPanel")?.classList.add("hidden");
@@ -169,40 +165,12 @@ function showSignedIn(user) {
   loadDocuments();
 }
 
-function addDriveConnectButton() {
-  const panel = $("adminPanel");
-  if (!panel || $("connectDriveBtn")) return;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.id = "connectDriveBtn";
-  button.textContent = "Connect Google Drive";
-  button.style.marginBottom = "12px";
-  button.addEventListener("click", connectGoogleDrive);
-  panel.prepend(button);
-}
-
-async function connectGoogleDrive() {
-  const button = $("connectDriveBtn");
-  busy(button, true, "Connecting…");
-  try {
-    const response = await driveRequest("authorize");
-    const result = await response.json();
-    if (!result.authorization_url) throw new Error(result.error || "Authorization link was not returned.");
-    window.location.href = result.authorization_url;
-  } catch (err) {
-    alert("Could not connect Google Drive: " + err.message);
-    busy(button, false);
-  }
-}
-
 async function loadDocuments() {
   if (!currentUser) return;
   $("loading").classList.remove("hidden");
   message("uploadMessage", "");
-
   try {
-    const response = await driveRequest("list");
-    const result = await response.json();
+    const result = await driveRequest("list");
     allDocuments = result.documents || [];
     renderDocuments();
   } catch (err) {
@@ -308,37 +276,23 @@ function renderDocuments() {
 async function uploadDocument(event) {
   event.preventDefault();
   if (!currentUser) return;
-
   const file = $("uploadFile").files[0];
   if (!file) return message("uploadMessage", "Choose a photo or PDF first.", "error");
-
-  const allowedTypes = [
-    "application/pdf", "image/jpeg", "image/png",
-    "image/webp", "image/heic", "image/heif"
-  ];
-  if (!allowedTypes.includes(file.type)) {
-    return message("uploadMessage", "Only PDF, JPG, PNG, WEBP or HEIC photos are allowed.", "error");
-  }
-  if (file.size > MAX_FILE_SIZE) {
-    return message("uploadMessage", "File is larger than 50 MB.", "error");
-  }
+  const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+  if (!allowedTypes.includes(file.type)) return message("uploadMessage", "Only PDF, JPG, PNG, WEBP or HEIC photos are allowed.", "error");
+  if (file.size > MAX_FILE_SIZE) return message("uploadMessage", "File is larger than 50 MB.", "error");
 
   const btn = $("uploadBtn");
   busy(btn, true, "Uploading…");
   message("uploadMessage", "");
-
   try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("title", $("docTitle").value.trim());
-    formData.append("category", $("category").value);
-    formData.append("document_date", $("docDate").value || "");
-    formData.append("notes", $("notes").value.trim());
-
-    const response = await driveRequest("upload", { method: "POST", body: formData });
-    const result = await response.json();
-    if (result.error) throw new Error(result.error);
-
+    const form = new FormData();
+    form.append("file", file);
+    form.append("title", $("docTitle").value.trim());
+    form.append("category", $("category").value);
+    form.append("document_date", $("docDate").value || "");
+    form.append("notes", $("notes").value.trim());
+    await driveRequest("upload", { method: "POST", body: form });
     $("uploadForm").reset();
     message("uploadMessage", "Document uploaded successfully to Google Drive.", "success");
     await loadDocuments();
@@ -352,7 +306,6 @@ async function uploadDocument(event) {
 async function openDocument(id) {
   const d = allDocuments.find(x => x.id === id);
   if (!d) return;
-
   try {
     if (isLegacyStoragePath(d.storage_path)) {
       const { data, error } = await db.storage.from(BUCKET).createSignedUrl(d.storage_path, 60);
@@ -360,20 +313,11 @@ async function openDocument(id) {
       window.open(data.signedUrl, "_blank", "noopener,noreferrer");
       return;
     }
-
-    const response = await driveRequest("download", { id: d.storage_path });
+    const response = await driveRequest("download", { query: `&id=${encodeURIComponent(d.storage_path)}` });
     const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const opened = window.open(blobUrl, "_blank");
-    if (!opened) {
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = d.original_file_name || d.title || "document";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    }
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (err) {
     alert("Could not open file: " + err.message);
   }
@@ -383,30 +327,17 @@ async function editDocument(id) {
   if (!isAdmin()) return alert("Only the Admin can edit documents.");
   const d = allDocuments.find(x => x.id === id);
   if (!d) return;
-
   const title = prompt("Document name:", d.title);
   if (title === null) return;
-  if (!title.trim() || title.trim().length > 120) {
-    return alert("Name must be between 1 and 120 characters.");
-  }
+  if (!title.trim() || title.trim().length > 120) return alert("Name must be between 1 and 120 characters.");
   const notes = prompt("Notes:", d.notes || "");
   if (notes === null) return;
-
   try {
     if (isLegacyStoragePath(d.storage_path)) {
-      const { error } = await db.from("documents").update({
-        title: title.trim(),
-        notes: notes.trim() || null
-      }).eq("id", id);
+      const { error } = await db.from("documents").update({ title: title.trim(), notes: notes.trim() || null }).eq("id", id);
       if (error) throw error;
     } else {
-      const response = await driveRequest("update", {
-        method: "PATCH",
-        id: d.storage_path,
-        body: { title: title.trim(), notes: notes.trim() || null }
-      });
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
+      await driveRequest("update", { method: "PATCH", query: `&id=${encodeURIComponent(d.storage_path)}`, body: { title: title.trim(), notes: notes.trim() || null } });
     }
     await loadDocuments();
   } catch (err) {
@@ -418,7 +349,6 @@ async function deleteDocument(id) {
   if (!isAdmin()) return alert("Only the Admin can delete documents.");
   const d = allDocuments.find(x => x.id === id);
   if (!d || !confirm(`Delete "${d.title}" and its file? This cannot be undone.`)) return;
-
   try {
     if (isLegacyStoragePath(d.storage_path)) {
       const { error: fileError } = await db.storage.from(BUCKET).remove([d.storage_path]);
@@ -426,13 +356,25 @@ async function deleteDocument(id) {
       const { error: rowError } = await db.from("documents").delete().eq("id", id);
       if (rowError) throw rowError;
     } else {
-      const response = await driveRequest("delete", { method: "DELETE", id: d.storage_path });
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
+      await driveRequest("delete", { method: "DELETE", query: `&id=${encodeURIComponent(d.storage_path)}` });
     }
     await loadDocuments();
   } catch (err) {
     alert("Delete failed: " + err.message);
+  }
+}
+
+async function connectGoogleDrive() {
+  if (!isAdmin()) return alert("Only the Admin can connect Google Drive.");
+  const btn = $("connectDriveBtn");
+  busy(btn, true, "Connecting…");
+  try {
+    const result = await driveRequest("authorize");
+    if (!result.authorization_url) throw new Error("Authorization URL was not returned by the server.");
+    window.location.href = result.authorization_url;
+  } catch (err) {
+    alert("Could not connect Google Drive: " + err.message);
+    busy(btn, false);
   }
 }
 
@@ -492,6 +434,7 @@ $("uploadForm").addEventListener("submit", uploadDocument);
 $("search").addEventListener("input", renderDocuments);
 $("refreshBtn").addEventListener("click", loadDocuments);
 $("refreshPendingBtn")?.addEventListener("click", loadPendingUsers);
+$("connectDriveBtn")?.addEventListener("click", connectGoogleDrive);
 
 $("pendingUserRows")?.addEventListener("click", async e => {
   const btn = e.target.closest("button[data-user-action]");
