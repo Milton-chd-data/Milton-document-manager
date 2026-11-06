@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,120 +13,43 @@
 <body>
   <header class="topbar">
     <div class="brand-mark">M</div>
-    <div>
-      <h1>Milton Document Manager</h1>
-      <p>Office document library</p>
-    </div>
+    <div><h1>Milton Document Manager</h1><p>Office document library</p></div>
   </header>
-
   <main class="container">
     <section id="authPanel" class="panel auth-panel">
-      <h2>Sign in to Milton</h2>
-      <p class="muted">Use your office account.</p>
+      <h2>Sign in to Milton</h2><p class="muted">Use your office account.</p>
       <form id="authForm">
-        <label for="email">Email address</label>
-        <input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
-
-        <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters">
-
-        <div class="button-row">
-          <button type="submit" id="signInBtn">Sign in</button>
-          <button type="button" id="signUpBtn" class="secondary">Create account</button>
-        </div>
-      </form>
-      <p id="authMessage" class="message" role="status"></p>
+        <label for="email">Email address</label><input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
+        <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters">
+        <div class="button-row"><button type="submit" id="signInBtn">Sign in</button><button type="button" id="signUpBtn" class="secondary">Create account</button></div>
+      </form><p id="authMessage" class="message" role="status"></p>
     </section>
-
     <section id="appPanel" class="hidden">
-      <div class="welcome-row">
-        <div>
-          <h2>Office documents</h2>
-          <p id="userEmail" class="muted"></p>
-        </div>
-        <button id="signOutBtn" class="secondary small">Sign out</button>
-      </div>
-
+      <div class="welcome-row"><div><h2>Office documents</h2><p id="userEmail" class="muted"></p></div><button id="signOutBtn" class="secondary small">Sign out</button></div>
       <section id="adminPanel" class="panel hidden">
         <div class="list-heading">
-          <div>
-            <h3>Admin dashboard · Registration approvals</h3>
-            <p class="muted">Approve only staff accounts you recognize. Users cannot approve themselves.</p>
+          <div><h3>Admin dashboard · Registration approvals</h3><p class="muted">Approve only staff accounts you recognize. Users cannot approve themselves.</p></div>
+          <div class="button-row">
+            <button id="connectDriveBtn" class="small" type="button">Connect Google Drive</button>
+            <button id="refreshPendingBtn" class="secondary small" type="button">Refresh users</button>
           </div>
-          <button id="refreshPendingBtn" class="secondary small" type="button">Refresh users</button>
         </div>
         <p id="approvalMessage" class="message" role="status"></p>
         <div id="noPendingUsers" class="empty hidden">No pending registrations.</div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Email</th><th>Registered</th><th>Actions</th></tr>
-            </thead>
-            <tbody id="pendingUserRows"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap"><table><thead><tr><th>Email</th><th>Registered</th><th>Actions</th></tr></thead><tbody id="pendingUserRows"></tbody></table></div>
       </section>
-
       <section id="uploadPanel" class="panel">
         <h3>Upload photo or PDF</h3>
-        <form id="uploadForm">
-          <div class="form-grid">
-            <div>
-              <label for="docTitle">Document name *</label>
-              <input id="docTitle" required maxlength="120" placeholder="e.g. Vendor Invoice">
-            </div>
-            <div>
-              <label for="category">Category</label>
-              <select id="category">
-                <option>Invoice</option>
-                <option>Purchase Order</option>
-                <option>Credit Note</option>
-                <option>Debit Note</option>
-                <option>Company Letter</option>
-                <option>Agreement</option>
-                <option>Stock Report</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div>
-              <label for="docDate">Document date</label>
-              <input id="docDate" type="date">
-            </div>
-            <div>
-              <label for="uploadFile">PDF or photo * (max 50 MB)</label>
-              <input id="uploadFile" type="file" accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif" required>
-            </div>
-          </div>
-
-          <label for="notes">Notes (optional)</label>
-          <textarea id="notes" rows="2" maxlength="1000" placeholder="Reference number or short notes"></textarea>
-          <button id="uploadBtn" type="submit">Upload document</button>
-          <p id="uploadMessage" class="message" role="status"></p>
-        </form>
+        <form id="uploadForm"><div class="form-grid">
+          <div><label for="docTitle">Document name *</label><input id="docTitle" required maxlength="120" placeholder="e.g. Vendor Invoice"></div>
+          <div><label for="category">Category</label><select id="category"><option>Invoice</option><option>Purchase Order</option><option>Credit Note</option><option>Debit Note</option><option>Company Letter</option><option>Agreement</option><option>Stock Report</option><option>Other</option></select></div>
+          <div><label for="docDate">Document date</label><input id="docDate" type="date"></div>
+          <div><label for="uploadFile">PDF or photo * (max 50 MB)</label><input id="uploadFile" type="file" accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif" required></div>
+        </div><label for="notes">Notes (optional)</label><textarea id="notes" rows="2" maxlength="1000" placeholder="Reference number or short notes"></textarea><button id="uploadBtn" type="submit">Upload document</button><p id="uploadMessage" class="message" role="status"></p></form>
       </section>
-
-      <section class="panel">
-        <div class="list-heading">
-          <div>
-            <h3>Saved documents</h3>
-            <p class="muted">All office documents. Search by name, category or notes.</p>
-          </div>
-          <button id="refreshBtn" class="secondary small" type="button">Refresh</button>
-        </div>
-
-        <label class="sr-only" for="search">Search documents</label>
-        <input id="search" type="search" placeholder="Search documents…">
-        <div id="loading" class="muted hidden">Loading documents…</div>
-        <div id="emptyState" class="empty hidden">No documents found. Upload your first file above.</div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Document</th><th>Category</th><th>Date</th><th>Actions</th></tr>
-            </thead>
-            <tbody id="documentRows"></tbody>
-          </table>
-        </div>
+      <section class="panel"><div class="list-heading"><div><h3>Saved documents</h3><p class="muted">All office documents. Search by name, category or notes.</p></div><button id="refreshBtn" class="secondary small" type="button">Refresh</button></div>
+        <label class="sr-only" for="search">Search documents</label><input id="search" type="search" placeholder="Search documents…"><div id="loading" class="muted hidden">Loading documents…</div><div id="emptyState" class="empty hidden">No documents found. Upload your first file above.</div>
+        <div class="table-wrap"><table><thead><tr><th>Document</th><th>Category</th><th>Date</th><th>Actions</th></tr></thead><tbody id="documentRows"></tbody></table></div>
       </section>
     </section>
     <footer>Milton Document Manager · Office library</footer>
