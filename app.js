@@ -15,6 +15,45 @@ let sessionCheckInProgress = false;
 const isAdmin = () =>
   (currentUser?.email || "").toLowerCase() === ADMIN_EMAIL;
 
+const DRIVE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/google-drive-storage`;
+
+async function driveRequest(action, { method = "GET", id = "", body = null } = {}) {
+  const { data: sessionData, error: sessionError } = await db.auth.getSession();
+  if (sessionError) throw sessionError;
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Your login session has expired. Please sign in again.");
+
+  const url = new URL(DRIVE_FUNCTION_URL);
+  url.searchParams.set("action", action);
+  if (id) url.searchParams.set("id", id);
+
+  const headers = {
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+    Authorization: `Bearer ${accessToken}`
+  };
+  if (body && !(body instanceof FormData)) headers["Content-Type"] = "application/json";
+
+  const response = await fetch(url.toString(), {
+    method,
+    headers,
+    body: body instanceof FormData ? body : (body ? JSON.stringify(body) : undefined)
+  });
+
+  if (!response.ok) {
+    let detail = `Request failed (${response.status})`;
+    try {
+      const result = await response.json();
+      detail = result.error || result.message || detail;
+    } catch (_) {}
+    throw new Error(detail);
+  }
+  return response;
+}
+
+function isLegacyStoragePath(path) {
+  return String(path || "").includes("/");
+}
+
 function message(id, text, type = "") {
   const el = $(id);
   if (!el) return;
@@ -122,11 +161,38 @@ function showSignedIn(user) {
 
   if (isAdmin()) {
     $("adminPanel")?.classList.remove("hidden");
+    addDriveConnectButton();
     loadPendingUsers();
   } else {
     $("adminPanel")?.classList.add("hidden");
   }
   loadDocuments();
+}
+
+function addDriveConnectButton() {
+  const panel = $("adminPanel");
+  if (!panel || $("connectDriveBtn")) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.id = "connectDriveBtn";
+  button.textContent = "Connect Google Drive";
+  button.style.marginBottom = "12px";
+  button.addEventListener("click", connectGoogleDrive);
+  panel.prepend(button);
+}
+
+async function connectGoogleDrive() {
+  const button = $("connectDriveBtn");
+  busy(button, true, "Connecting…");
+  try {
+    const response = await driveRequest("authorize");
+    const result = await response.json();
+    if (!result.authorization_url) throw new Error(result.error || "Authorization link was not returned.");
+    window.location.href = result.authorization_url;
+  } catch (err) {
+    alert("Could not connect Google Drive: " + err.message);
+    busy(button, false);
+  }
 }
 
 async function loadDocuments() {
@@ -135,11 +201,9 @@ async function loadDocuments() {
   message("uploadMessage", "");
 
   try {
-    const { data, error } = await db.from("documents")
-      .select("id,title,category,document_date,notes,storage_path,original_file_name,owner_id,created_at")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    allDocuments = data || [];
+    const response = await driveRequest("list");
+    const result = await response.json();
+    allDocuments = result.documents || [];
     renderDocuments();
   } catch (err) {
     message("uploadMessage", "Could not load documents: " + err.message, "error");
@@ -263,31 +327,20 @@ async function uploadDocument(event) {
   busy(btn, true, "Uploading…");
   message("uploadMessage", "");
 
-  const path = `${currentUser.id}/${crypto.randomUUID()}-${cleanName(file.name)}`;
   try {
-    const { error: uploadError } = await db.storage.from(BUCKET).upload(path, file, {
-      contentType: file.type,
-      upsert: false
-    });
-    if (uploadError) throw uploadError;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", $("docTitle").value.trim());
+    formData.append("category", $("category").value);
+    formData.append("document_date", $("docDate").value || "");
+    formData.append("notes", $("notes").value.trim());
 
-    const { error: insertError } = await db.from("documents").insert({
-      owner_id: currentUser.id,
-      title: $("docTitle").value.trim(),
-      category: $("category").value,
-      document_date: $("docDate").value || null,
-      notes: $("notes").value.trim() || null,
-      storage_path: path,
-      original_file_name: file.name
-    });
-
-    if (insertError) {
-      await db.storage.from(BUCKET).remove([path]);
-      throw insertError;
-    }
+    const response = await driveRequest("upload", { method: "POST", body: formData });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
 
     $("uploadForm").reset();
-    message("uploadMessage", "Document uploaded successfully.", "success");
+    message("uploadMessage", "Document uploaded successfully to Google Drive.", "success");
     await loadDocuments();
   } catch (err) {
     message("uploadMessage", "Upload failed: " + err.message, "error");
@@ -299,9 +352,31 @@ async function uploadDocument(event) {
 async function openDocument(id) {
   const d = allDocuments.find(x => x.id === id);
   if (!d) return;
-  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(d.storage_path, 60);
-  if (error) return alert("Could not open file: " + error.message);
-  window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+
+  try {
+    if (isLegacyStoragePath(d.storage_path)) {
+      const { data, error } = await db.storage.from(BUCKET).createSignedUrl(d.storage_path, 60);
+      if (error) throw error;
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const response = await driveRequest("download", { id: d.storage_path });
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const opened = window.open(blobUrl, "_blank");
+    if (!opened) {
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = d.original_file_name || d.title || "document";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  } catch (err) {
+    alert("Could not open file: " + err.message);
+  }
 }
 
 async function editDocument(id) {
@@ -317,12 +392,26 @@ async function editDocument(id) {
   const notes = prompt("Notes:", d.notes || "");
   if (notes === null) return;
 
-  const { error } = await db.from("documents").update({
-    title: title.trim(),
-    notes: notes.trim() || null
-  }).eq("id", id);
-  if (error) return alert("Edit failed: " + error.message);
-  await loadDocuments();
+  try {
+    if (isLegacyStoragePath(d.storage_path)) {
+      const { error } = await db.from("documents").update({
+        title: title.trim(),
+        notes: notes.trim() || null
+      }).eq("id", id);
+      if (error) throw error;
+    } else {
+      const response = await driveRequest("update", {
+        method: "PATCH",
+        id: d.storage_path,
+        body: { title: title.trim(), notes: notes.trim() || null }
+      });
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+    }
+    await loadDocuments();
+  } catch (err) {
+    alert("Edit failed: " + err.message);
+  }
 }
 
 async function deleteDocument(id) {
@@ -331,10 +420,16 @@ async function deleteDocument(id) {
   if (!d || !confirm(`Delete "${d.title}" and its file? This cannot be undone.`)) return;
 
   try {
-    const { error: fileError } = await db.storage.from(BUCKET).remove([d.storage_path]);
-    if (fileError) throw fileError;
-    const { error: rowError } = await db.from("documents").delete().eq("id", id);
-    if (rowError) throw rowError;
+    if (isLegacyStoragePath(d.storage_path)) {
+      const { error: fileError } = await db.storage.from(BUCKET).remove([d.storage_path]);
+      if (fileError) throw fileError;
+      const { error: rowError } = await db.from("documents").delete().eq("id", id);
+      if (rowError) throw rowError;
+    } else {
+      const response = await driveRequest("delete", { method: "DELETE", id: d.storage_path });
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+    }
     await loadDocuments();
   } catch (err) {
     alert("Delete failed: " + err.message);
